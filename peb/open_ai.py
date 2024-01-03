@@ -41,6 +41,8 @@ Note:
 Ensure that the required environment variables are set before using this module,
 as they are crucial for authenticating with the OpenAI API.
 """
+from __future__ import annotations
+
 import logging
 import os
 
@@ -125,7 +127,8 @@ class OpenAI:
         can use to answer the question. Do this step by step. Take a deep breath. 
         The draft prompt will be enclosed within angle brackets <>."""
 
-    def create(self, instruction, prompt, enhancement=None) -> ChatCompletion:
+    def create(self, instruction, prompt, enhancement=None) -> (
+            tuple)[bool, str, ChatCompletion]:
         """
         Create a response from the OpenAI model based on the provided instruction and prompt.
         Optionally, an enhancement can be added to the prompt.
@@ -136,22 +139,45 @@ class OpenAI:
         enhancement (Optional[str]): Additional content to enhance the prompt.
 
         Returns:
+        success (bool): True if the request was successful, False otherwise.
+        err_msg (str): The error message if the request failed, None otherwise.
         ChatCompletion: The response from the OpenAI API.
         """
         logger.info("Instruction: %s", instruction)
-        response = openai.chat.completions.create(
-            model=self.model,
-            temperature=self.temperature,
-            messages=[
-                {"role": "system", "content": instruction},
-                {"role": "user", "content": "<" + prompt + ">"},
-                {"role": "system", "content": enhancement},
-            ],
-        )
-        return response
+        success = False
+        err_msg = None
+        try:
+            response = openai.chat.completions.create(
+                model=self.model,
+                temperature=self.temperature,
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": "<" + prompt + ">"},
+                    {"role": "system", "content": enhancement},
+                ],
+            )
+        except openai.APITimeoutError as e:
+            err_msg = f"OpenAI API request timed out: {e}"
+        except openai.APIConnectionError as e:
+            err_msg = f"OpenAI API request failed to connect: {e}"
+        except openai.BadRequestError as e:
+            err_msg = f"OpenAI API request was invalid: {e}"
+        except openai.AuthenticationError as e:
+            err_msg = f"OpenAI API request was not authorized: {e}"
+        except openai.PermissionDeniedError as e:
+            err_msg = f"OpenAI API request was not permitted: {e}"
+        except openai.RateLimitError as e:
+            err_msg = f"OpenAI API request exceeded rate limit: {e}"
+        except openai.APIError as e:
+            err_msg = f"OpenAI API returned an API Error: {e}"
+        else:
+            success = True
+            logger.info("Moderation response: %s", response)
+            return success, err_msg, response   # type: ignore
+        return success, err_msg, None   # type: ignore
 
     @staticmethod
-    def moderate(prompt) -> bool:
+    def moderate(prompt) -> tuple[bool, str, bool]:
         """
         Moderate the given prompt to check for any content that violates guidelines.
 
@@ -159,12 +185,34 @@ class OpenAI:
         prompt (str): The prompt to be moderated.
 
         Returns:
+        success (bool): True if the moderation request was successful, False otherwise.
+        err_msg (str): The error message if the moderation request failed, None otherwise.
         bool: True if the prompt is flagged, False otherwise.
         """
         logger.info("Moderating: %s", prompt)
-        response = openai.moderations.create(input=prompt)
-        logger.info("Moderation response: %s", type(response.results[0]))
-        return response.results[0].flagged
+        success = False
+        err_msg = None
+        try:
+            response = openai.moderations.create(input=prompt)
+        except openai.APITimeoutError as e:
+            err_msg = f"OpenAI API request timed out: {e}"
+        except openai.APIConnectionError as e:
+            err_msg = f"OpenAI API request failed to connect: {e}"
+        except openai.BadRequestError as e:
+            err_msg = f"OpenAI API request was invalid: {e}"
+        except openai.AuthenticationError as e:
+            err_msg = f"OpenAI API request was not authorized: {e}"
+        except openai.PermissionDeniedError as e:
+            err_msg = f"OpenAI API request was not permitted: {e}"
+        except openai.RateLimitError as e:
+            err_msg = f"OpenAI API request exceeded rate limit: {e}"
+        except openai.APIError as e:
+            err_msg = f"OpenAI API returned an API Error: {e}"
+        else:
+            success = True
+            logger.info("Moderation response: %s", response)
+            return success, err_msg, response.results[0].flagged   # type: ignore
+        return success, err_msg, False
 
 
 if __name__ == "__main__":

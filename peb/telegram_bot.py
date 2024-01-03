@@ -142,7 +142,7 @@ def start(update, context) -> BotState:
     context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
 
     Returns:
-    str: The next state code.
+    BotState: The next state code.
     """
     logger.info("@Start")
     logger.info("Context user data 1: %s", context.user_data)
@@ -237,7 +237,7 @@ def task(update, context) -> BotState:
     context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
 
     Returns:
-    str: The next state code.
+    BotState: The next state code.
     """
     process_request("task", update, context, BotState.WHOM, "whom")
     return BotState.WHOM
@@ -353,7 +353,7 @@ def quality(update, context) -> BotState:
     context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
 
     Returns:
-    str: The next state code.
+    BotState: The next state code.
     """
     logger.info("@Quality")
     update_user_data(update, context, "quality")
@@ -386,8 +386,11 @@ def open_ai(update, context) -> None:
 
     prompt, enhancement = assemble_prompt(context)
     logger.info("Prompt: %s", prompt)
-    banned_content = openai_obj.moderate(prompt)
-    logger.info("Moderation response: %s", banned_content)
+    success, err_msg, banned_content = openai_obj.moderate(prompt)
+    if not success:
+        logger.info("Error: %s", err_msg)
+        update_message_callback(update, err_msg)
+        return
     if banned_content:
         logger.info("Banned content")
         update_message_callback(
@@ -395,11 +398,15 @@ def open_ai(update, context) -> None:
             "Your prompt contains banned content and it cannot be processed.",
         )
         return
-    response = openai_obj.create(
+    success, err_msg, response = openai_obj.create(
         instruction=openai_obj.prompt_enhancement_instruction,
         prompt=prompt,
         enhancement=enhancement,
     )
+    if not success:
+        logger.info("Error: %s", err_msg)
+        update_message_callback(update, err_msg)
+        return
     logger.info("Response: %s", response)
     response_text = response.choices[0].message.content
     logger.info("Response text: %s", response_text)
@@ -408,22 +415,6 @@ def open_ai(update, context) -> None:
     )
     update_message_callback(update, explaining_text)
     update_message_callback(update, response_text)
-
-
-def err_openai(update) -> BotState:
-    """
-    Handle errors in the 'openai' state.
-
-    Parameters:
-    update (telegram.Update): The incoming update.
-    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
-
-    Returns:
-    str: The 'openai' state code for retry.
-    """
-    update.message.reply_text("Please enter your OpenAI API key again.")
-    show_buttons(update, "openai")
-    return BotState.OPENAI
 
 
 process_dict = {

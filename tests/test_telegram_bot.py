@@ -26,14 +26,28 @@ Dependencies:
 
 from unittest.mock import Mock
 
+import pytest
 from telegram import Chat, Message, Update
 from telegram.ext import CallbackContext
 
 from peb.data import BotState
-from peb.telegram_bot import start
+from peb.telegram_bot import process_dict
+
 
 # Sample test for the 'start' function
-def test_start_function(mocker):
+@pytest.mark.parametrize("state, expected_next_state", [
+    ("start", BotState.GOAL),
+    ("goal", BotState.PERSONA),
+    ("persona", BotState.TASK),
+    ("task", BotState.WHOM),
+    ("whom", BotState.HOW),
+    ("how", BotState.FORMAT),
+    ("format", BotState.CONSTRAINTS),
+    ("constraints", BotState.TOOL),
+    ("tool", BotState.QUALITY),
+    ("quality", BotState.OPENAI),
+])
+def test_state_function(state, expected_next_state, mocker):
     """
         Test the 'start' function of the Telegram bot.
 
@@ -56,6 +70,11 @@ def test_start_function(mocker):
     update = Mock(spec=Update)
     context = Mock(spec=CallbackContext)
 
+    process_request_mock = mocker.patch("peb.telegram_bot.process_request")
+    process_request_mock.return_value = None
+    update_user_data_mock = mocker.patch("peb.telegram_bot.update_user_data")
+    update_user_data_mock.return_value = None
+
     # Setting up the mocked Update object
     update.message = Mock(spec=Message)
     update.message.chat = Mock(spec=Chat)
@@ -66,14 +85,14 @@ def test_start_function(mocker):
     update.message.reply_text = mocker.Mock()
     update.message.reply_text.return_value = None
 
+    update_message_callback_mock = mocker.patch("peb.telegram_bot.update_message_callback")
+    update_message_callback_mock.return_value = None
+    assemble_prompt_mock = mocker.patch("peb.telegram_bot.assemble_prompt")
+    assemble_prompt_mock.return_value = Mock()
+    assemble_prompt_mock.return_value = "Welcome to the bot!", "What's your goal?"
+
     # Call the start function
-    result = start(update, context)
+    result = process_dict[state](update, context)
 
     # Assert that the function returns the correct next state
-    assert result == BotState.GOAL
-
-    # Assert that reply_text was called with the correct arguments
-#    update.message.reply_text.assert_called_with("Choose an option or enter your answer:")
-
-
-# Additional test cases can be written for other scenarios and other functions
+    assert result == expected_next_state
