@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "peb"
+version = "0.1.0"
+description = "A telegram bot that implements the prompt engineering canvas\""
+authors = ["Francisco López-Lira <flopezlira@gmail.com>"]
+license = "CC BY-NC"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pytest = "^7.4.4"
+pre-commit = "^3.6.0"
+Sphinx = "^7.2.6"
+coverage = "^7.4.0"
+pylint = "^3.0.3"
+black = "^23.12.1"
+mypy = "^1.8.0"
+py-dotenv = "^0.1"
+python-dotenv = "^1.0.0"
+openai = "^1.6.1"
+httpx = "^0.26.0"
+python-telegram-bot = "13.7"
+flake8 = "^6.1.0"
+isort = "^5.13.2"
+pytest-mock = "^3.12.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

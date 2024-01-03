@@ -1,33 +1,98 @@
-(
-    START,
-    GOAL,
-    PERSONA,
-    TASK,
-    WHOM,
-    HOW,
-    FORMAT,
-    CONSTRAINTS,
-    TOOL,
-    QUALITY,
-    OPENAI,
-    PAYMENT,
-    SKIP,
-) = range(13)
+"""
+This module defines the states and associated data for a Telegram bot that interacts with
+ OpenAI's GPT model.
+The bot guides users through various states to collect information and generate a comprehensive
+ prompt for the GPT model.
+
+Features:
+- Enumerated states: The BotState enum class provides clear, identifiable names for each state in
+    the bot's conversation flow.
+- State messages: A dictionary mapping each state to its corresponding message prompts, guiding the
+    user through the conversation.
+- State-specific examples, suggestions, and final messages: Dictionaries containing predefined
+    examples,     suggestions, and final messages for each state to enhance the user experience
+    and prompt quality.
+- State code mapping: A dictionary linking string representations of states to their corresponding
+    enum values, facilitating easy state management and reference.
+
+The module is structured to provide all necessary data and configurations for managing the
+conversation states in a Telegram bot that interfaces with OpenAI's GPT model.
+It includes predefined messages, examples, and guidelines for each state to assist users in
+crafting effective prompts for the GPT model.
+
+The module is designed to be imported into a larger Telegram bot application where these states,
+messages, and suggestions will be used to guide the conversation and prompt creation process.
+
+Usage:
+The module is not a standalone script but is intended to be imported and utilized as part of
+    a Telegram bot application.
+The BotState enum and associated dictionaries should be used to manage and respond to user
+interactions within the bot.
+
+Example:
+    from this_module import BotState, state_code, state_message
+    current_state = BotState.START
+    print(state_message[current_state])
+
+Note:
+- The module assumes that the Telegram bot and OpenAI GPT integration are handled in another part
+    of the application.
+- It's important to update the examples, suggestions, and messages as per the specific needs and
+    context of the bot.
+"""
+
+from enum import Enum
+
+
+class BotState(Enum):
+    """
+    Enumeration of conversation states for a Telegram bot.
+
+    Each state represents a specific stage in the bot's conversation flow, guiding the user through
+    the process of generating a comprehensive prompt for OpenAI's GPT model.
+
+    Attributes:
+    - START: Initial state of the conversation.
+    - GOAL: State to define the user's goal.
+    - PERSONA: State to set the desired persona for the response.
+    - TASK: State for specifying the task at hand.
+    - WHOM: State to define the target audience.
+    - HOW: State to describe how the task should be approached.
+    - FORMAT: State for choosing the response format.
+    - CONSTRAINTS: State to specify any constraints or assumptions.
+    - TOOL: State to select tools or frameworks to be used.
+    - QUALITY: State to define quality assurance measures.
+    - OPENAI: State for integration with OpenAI's GPT model.
+    - SKIP: State to skip the current step.
+    """
+
+    START = 0
+    GOAL = 1
+    PERSONA = 2
+    TASK = 3
+    WHOM = 4
+    HOW = 5
+    FORMAT = 6
+    CONSTRAINTS = 7
+    TOOL = 8
+    QUALITY = 9
+    OPENAI = 10
+    SKIP = 11
+
 
 state_code = {
-    "start": START,
-    "goal": GOAL,
-    "persona": PERSONA,
-    "task": TASK,
-    "whom": WHOM,
-    "how": HOW,
-    "format": FORMAT,
-    "constraints": CONSTRAINTS,
-    "tool": TOOL,
-    "quality": QUALITY,
-    "openai": OPENAI,
-    "payment": PAYMENT,
-    "skip": SKIP,
+    "start": BotState.START,
+    "goal": BotState.GOAL,
+    "persona": BotState.PERSONA,
+    "task": BotState.TASK,
+    "whom": BotState.WHOM,
+    "how": BotState.HOW,
+    "format": BotState.FORMAT,
+    "constraints": BotState.CONSTRAINTS,
+    "tool": BotState.TOOL,
+    "quality": BotState.QUALITY,
+    "openai": BotState.OPENAI,
+    "skip": BotState.SKIP,
 }
 
 final_message = {
@@ -43,18 +108,21 @@ final_message = {
 }
 
 suggestions = {
-    "how": '"Add to the prompt your suggestions for the best way, steps, strategy or approach to do the task.',
+    "how": '"Add to the prompt your suggestions for the best way, steps,'
+    "strategy or approach to do the task.",
     "format": "Add to the prompt the best output format for the prompt.",
-    "constraints": 'Add to the prompt your suggestions regarding assumptions, restrictions or constraints"',
+    "constraints": 'Add to the prompt your suggestions regarding assumptions," '
+    '"restrictions or constraints"',
     "tool": "Add to the prompt your suggestions of the best conceptual tools for the task",
-    "quality": "Add to the prompt your suggestions regarding the best way to assure quality in the prompt",
+    "quality": "Add to the prompt your suggestions regarding the best way to assure"
+    "quality in the prompt",
 }
 
 state_examples = {
-    START: [
+    BotState.START: [
         "None",
     ],
-    GOAL: [
+    BotState.GOAL: [
         "Learn Excel",
         "Understand Bayes theorem",
         "Achieve my goals in life",
@@ -64,7 +132,7 @@ state_examples = {
         "Have a great vacation at Rome",
         "Write a book",
     ],
-    PERSONA: [
+    BotState.PERSONA: [
         #       "Be formal/casual/technical",
         "Expert in Excel with a technical style",
         "Math teacher with a formal style",
@@ -81,7 +149,7 @@ state_examples = {
         "Travel agent with a professional style",
         "Writing assistant",
     ],
-    TASK: [
+    BotState.TASK: [
         "Write the first chapter of a book",
         "Assemble a course syllabus",
         "Answer this email",
@@ -100,17 +168,19 @@ state_examples = {
         "Respond an email",
         "Summarize my inbox provided between triple quotes",
     ],
-    HOW: [
+    BotState.HOW: [
         "Use a step-by-step approach",
-        "Use this as a context: " "Use the following examples: 1+2=3",
+        "Use this as a context: ",
+        "Use the following examples: 1+2=3",
         "Use the following inputs delimited by <> to answer questions",
         "Answer with citations to provided sources",
         "Use the following categories to classify the information: Good, Bad, Indifferent",
         "Use this categories: 'Great = positive', 'Not working = negative', 'Helpful = positive'",
-        "Summarize the book/article/document by summarizing each section which I will provide to you",
+        "Summarize the book/article/document by summarizing each"
+        "section which I will provide to you",
         "Make a Quick summary",
     ],
-    WHOM: [
+    BotState.WHOM: [
         "For a person with no previous experience",
         "For busy professionals",
         "For absolute beginners",
@@ -120,7 +190,7 @@ state_examples = {
         "For a person with no technical background",
         "For a marketing specialist",
     ],
-    FORMAT: [
+    BotState.FORMAT: [
         "Text",
         "Table",
         "List",
@@ -138,7 +208,7 @@ state_examples = {
         "XML",
         "Markdown",
     ],
-    CONSTRAINTS: [
+    BotState.CONSTRAINTS: [
         "Maximum 500 words",
         "The course duration should be 3 weeks",
         "Summarize in 3 paragraphs",
@@ -152,7 +222,7 @@ state_examples = {
         "add pop culture references",
         "include terminology from x",
     ],
-    TOOL: [
+    BotState.TOOL: [
         "SWOT analysis",
         "Business model canvas",
         "Ben Franklin",
@@ -166,9 +236,10 @@ state_examples = {
         "Business/Lean model canvas",
         "Design thinking",
         "Persona analysis",
-        "Agile framework" "OKRs",
+        "Agile framework",
+        "OKRs",
     ],
-    QUALITY: [
+    BotState.QUALITY: [
         "Work out your own (ChatGPT) solution before coming to a conclusion",
         "Use instructional design best practices",
         "Make sure you don't miss anything from previous steps",
@@ -176,23 +247,24 @@ state_examples = {
         "Think step-by-step",
         "Conduct an In-depth analysis",
         "Provide feedback based on clarity, completeness, and effectiveness",
-        "Let's iterate on this response. Please provide an initial answer, and based on that, suggest an improved "
-        "version that better matches our intended tone and purpose",
+        "Let's iterate on this response. Please provide an initial answer, and based on that,"
+        "suggest an improved version that better matches our intended tone and purpose",
         "Feel free to adjust the phrasing, context, or details for a more accurate outcome.",
     ],
-    OPENAI: ["Your promtp will be enhanced when you press 'Perfect my prompt'"],
-    PAYMENT: ["Pay through Stripe"],
+    BotState.OPENAI: [
+        "Your promtp will be enhanced when you press 'Perfect my prompt'"
+    ],
 }
 
 state_message = {
-    START: [
+    BotState.START: [
         "🤖️ Welcome!",
         "\n- I will help you create a great prompt for ChatGPT!",
         "\n- I will ask you for the information interactively. ",
         "\n- There are 9 steps. The first 3 steps are mandatory",
         "\n- At the end, I will show you a summary of your answers",
         "and the option to enhance your prompt if you don't want to change anything",
-        "" "\n- Once your prompt is enhanced,",
+        "\n- Once your prompt is enhanced,",
         "all you have to do is to copy it and paste it in ChatGPT",
         "\n- You can use it as it is free of charge",
         "or you can buy me a coffee or help me pay the server",
@@ -200,7 +272,7 @@ state_message = {
         '- Click on "Start again" anytime to start all over\n',
         "- ** Don't enter any personal information**\n",
     ],
-    GOAL: [
+    BotState.GOAL: [
         "1️⃣️",
         "Problem or Purpose",
         "State what you want to achieve or the problem you want to solve",
@@ -208,46 +280,48 @@ state_message = {
         "IT represents your long-term vision",
         "The goal can be divided into sub-goals or tasks, which you will define later",
     ],
-    PERSONA: [
+    BotState.PERSONA: [
         "2️⃣️",
         "Persona & Style",
         "Ask ChatGPT to adopt a persona or a role",
         "Select the persona, role or identity you want ChatGPT to adopt",
         "Also, you can select a style of communication that you want ChatGPT to use",
     ],
-    TASK: [
+    BotState.TASK: [
         "3️⃣️",
         "The What",
         "Task definition",
         "What do you want ChatGPT to do?",
         "You can divide the goal into tasks",
     ],
-    HOW: [
+    BotState.HOW: [
         "4️⃣️",
         "How should ChatGPT do the task?",
     ],
-    WHOM: ["5⃣️", "Provide context about the intended audience. Who is it for?"],
-    FORMAT: [
+    BotState.WHOM: [
+        "5⃣️",
+        "Provide context about the intended audience. Who is it for?",
+    ],
+    BotState.FORMAT: [
         "6⃣️️",
         "Format",
         "Select the output format for your prompt. You can choose more than one",
     ],
-    CONSTRAINTS: [
+    BotState.CONSTRAINTS: [
         "7️⃣️",
         "Constraints",
         "Enter any assumptions, restrictions or constraints that ChatGPT should follow"
         "Think of anything that ChatGPT should consider or that should not do",
     ],
-    TOOL: [
+    BotState.TOOL: [
         "8️⃣️",
         "Tools",
         "List a tool, model or framework that ChatGPT should use for the task",
     ],
-    QUALITY: [
+    BotState.QUALITY: [
         "9️⃣️",
         "Quality",
         "Decide on how to assure quality in your prompt",
     ],
-    OPENAI: ["Connect with OpenAI"],
-    PAYMENT: ["If you like my work, you can buy me a coffee"],
+    BotState.OPENAI: ["Connect with OpenAI"],
 }

@@ -1,5 +1,38 @@
+"""
+This module implements a Telegram bot for interacting with users and processing their
+requests using OpenAI's GPT model.
+The bot guides users through a series of conversation states, collecting information
+and responding accordingly.
+
+It uses the Python Telegram Bot API to handle various types of updates and callback queries,
+presenting users with a  range of options through inline keyboard buttons.
+Each state in the conversation corresponds to a specific function,
+which processes the user's input and determines the next state.
+
+The bot integrates with OpenAI's GPT-3.5 model to generate and moderate content based on user input,
+enhancing and  validating prompts to ensure they meet specific criteria.
+
+Key Features:
+- Multi-state conversation handling using the ConversationHandler from the Python Telegram Bot API.
+- Dynamic inline keyboard button generation based on the current conversation state.
+- Integration with OpenAI's GPT-3.5 model to create and moderate prompts.
+- Extensive use of logging for debugging and tracking the flow of conversation.
+- Environment variable management for secure storage of sensitive information like API keys.
+
+The module is structured around the main function, which initializes the bot
+and sets up the conversation handler and command handlers for starting and controlling
+the flow of the conversation. Each conversation state is managed by a dedicated function,
+and user data is stored and manipulated within the context of the conversation.
+
+Dependencies:
+- python-telegram-bot
+- openai
+- python-dotenv
+"""
+
 import logging
 import os
+from typing import Tuple
 
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,12 +42,18 @@ from telegram.ext import (
     ConversationHandler,
     Filters,
     MessageHandler,
-    PreCheckoutQueryHandler,
     Updater,
 )
 
-from data import *
-from open_ai import OpenAI
+from peb.data import (
+    BotState,
+    final_message,
+    state_code,
+    state_examples,
+    state_message,
+    suggestions,
+)
+from peb.open_ai import OpenAI
 
 load_dotenv()
 
@@ -26,36 +65,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_next_state(current_state):
-    next_state = state_code[current_state] + 1
-    for key, value in state_code.items():
-        if value == next_state:
-            next_state = key
-            break
-    return next_state
+def show_buttons(update, state) -> None:
+    """
+    Show buttons for the given state in the Telegram bot.
 
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+    state (str): The current state of the bot to determine which buttons to show.
 
-def show_buttons(update, context, state):
+    Returns:
+    None
+    """
     logger.info("@Show buttons")
     logger.info("State: %s", state)
     if state not in ["start"]:
         keyboard = [[InlineKeyboardButton("🏠️ Start again", callback_data="start")]]
-    if state not in ["start", "goal", "task", "persona", "payment", "openai", "whom"]:
+    if state not in ["start", "goal", "task", "persona", "openai", "whom"]:
         keyboard.append(
-            [InlineKeyboardButton(f"⏩️ Skip this step ", callback_data=f"{state}")]
+            [InlineKeyboardButton("⏩️ Skip this step ", callback_data=f"{state}")]
         )
     if state == "openai":
         keyboard.append(
             [InlineKeyboardButton("🧙‍♂️️ Perfect my prompt", callback_data="openai")]
         )
-    # if state == "payment":
-    #     keyboard.append(
-    #         [
-    #             InlineKeyboardButton(
-    #                 " 😀️ Happy? Buy me a coffe! ☕️", callback_data="payment"
-    #             )
-    #         ]
-    #     )
     reply_markup = InlineKeyboardMarkup(keyboard)
     if update.message:
         logger.info("Entering update message")
@@ -68,34 +101,73 @@ def show_buttons(update, context, state):
         logger.info("No update message or callback query")
 
 
-def examples(state):
+def examples(state) -> str:
+    """
+    Generate a string of examples for a given state.
+
+    Parameters:
+    state (str): The state for which examples are needed.
+
+    Returns:
+    str: Formatted string containing examples.
+    """
     return_str = "\n- ".join(state_examples[state])
     return f"Examples: \n- {return_str}"
 
 
-def update_message_callback(update, context, message):
+def update_message_callback(update, message) -> None:
+    """
+    Send a message to the user based on the update type.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+    message (str): The message to be sent to the user.
+
+    Returns:
+    None
+    """
     if update.message:
         update.message.reply_text(message)
     elif update.callback_query:
         update.callback_query.message.reply_text(message)
 
 
-def start(update, context):
+def start(update, context) -> BotState:
+    """
+    Start command for the Telegram bot.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    str: The next state code.
+    """
     logger.info("@Start")
     logger.info("Context user data 1: %s", context.user_data)
     context.user_data.clear()
-    c = "goal"
     logger.info("Context user data 2: %s", context.user_data)
     logger.info("Context: %s", context)
-#    logger.info('Current state %s', get_curr_state(update, context))
-    update_message_callback(update, context, f"{'. '.join(state_message[START])}")
-    update_message_callback(update, context, f"{'. '.join(state_message[GOAL])}")
-    update_message_callback(update, context, examples(GOAL))
-    show_buttons(update, context, "goal")
-    return GOAL
+    update_message_callback(update, f"{'. '.join(state_message[BotState.START])}")
+    update_message_callback(update, f"{'. '.join(state_message[BotState.GOAL])}")
+    update_message_callback(update, examples(BotState.GOAL))
+    show_buttons(update, "goal")
+    return BotState.GOAL
 
 
-def update_user_data(update, context, key):
+def update_user_data(update, context, key) -> None:
+    """
+    Update user data based on the message or callback query.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+    key (str): The key in user data to update.
+
+    Returns:
+    None
+    """
     if update.message:
         context.user_data[key] = update.message.text
     elif update.callback_query:
@@ -105,52 +177,135 @@ def update_user_data(update, context, key):
             context.user_data[key] = update.callback_query.message.text
 
 
-def process_request(state, update, context, next_state, next_state_code):
+def process_request(state, update, context, next_state, next_state_code) -> None:
+    """
+    Process the request for a given state and move to the next state.
+
+    Parameters:
+    state (str): The current state.
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+    next_state (str): The next state to transition to.
+    next_state_code (str): The code of the next state.
+
+    Returns:
+    None
+    """
     logger.info("@ %s", state)
     update_user_data(update, context, state)
-    update_message_callback(update, context, f"{'. '.join(state_message[next_state])}")
-    update_message_callback(update, context, examples(next_state))
-    show_buttons(update, context, next_state_code)
+    update_message_callback(update, f"{'. '.join(state_message[next_state])}")
+    update_message_callback(update, examples(next_state))
+    show_buttons(update, next_state_code)
 
 
-def goal(update, context):
-    process_request("goal", update, context, PERSONA, "persona")
-    return PERSONA
+def goal(update, context) -> BotState:
+    """
+    Handle the 'goal' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("goal", update, context, BotState.PERSONA, "persona")
+    return BotState.PERSONA
 
 
-def persona(update, context):
-    process_request("persona", update, context, TASK, "task")
-    return TASK
+def persona(update, context) -> BotState:
+    """
+    Handle the 'persona' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("persona", update, context, BotState.TASK, "task")
+    return BotState.TASK
 
 
-def task(update, context):
-    process_request("task", update, context, WHOM, "whom")
-    return WHOM
+def task(update, context) -> BotState:
+    """
+    Handle the 'task' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    str: The next state code.
+    """
+    process_request("task", update, context, BotState.WHOM, "whom")
+    return BotState.WHOM
 
 
-def whom(update, context):
-    process_request("whom", update, context, HOW, "how")
-    return HOW
+def whom(update, context) -> BotState:
+    """
+    Handle the 'whom' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("whom", update, context, BotState.HOW, "how")
+    return BotState.HOW
 
 
-def how(update, context):
-    process_request("how", update, context, FORMAT, "format")
-    return FORMAT
+def how(update, context) -> BotState:
+    """
+    Handle the 'how' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("how", update, context, BotState.FORMAT, "format")
+    return BotState.FORMAT
 
 
-def formatting(update, context):
-    process_request("format", update, context, CONSTRAINTS, "constraints")
-    return CONSTRAINTS
+def formatting(update, context) -> BotState:
+    """
+    Handle the 'format' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("format", update, context, BotState.CONSTRAINTS, "constraints")
+    return BotState.CONSTRAINTS
 
 
-def assemble_prompt(context):
+def assemble_prompt(context) -> Tuple[str, str]:
+    """
+    Assemble the prompt based on the user's input collected in various stages.
+
+    Parameters:
+    context (telegram.ext.CallbackContext): The callback context containing user data.
+
+    Returns:
+    tuple: A tuple containing the summary and enhancement based on user data.
+    """
     summary = ""
     enhancement = ""
     logger.info("User data: %s", context.user_data)
-    for stage in final_message:
+    for stage, message in final_message.items():
         if stage in context.user_data:
-            if context.user_data[stage] not in ["None", MESSAGE]:
-                summary += f"{final_message[stage]} {context.user_data[stage]}\n"
+            user_data_value = context.user_data[stage]
+            if user_data_value not in ["None", MESSAGE]:
+                summary += f"{message} {user_data_value}\n"
             else:
                 if stage in suggestions:
                     enhancement += f"{suggestions[stage]}\n"
@@ -159,66 +314,71 @@ def assemble_prompt(context):
     return summary, enhancement
 
 
-def constraints(update, context):
-    process_request("constraints", update, context, TOOL, "tool")
-    return TOOL
+def constraints(update, context) -> BotState:
+    """
+    Handle the 'constraints' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("constraints", update, context, BotState.TOOL, "tool")
+    return BotState.TOOL
 
 
-def tool(update, context):
-    process_request("tool", update, context, QUALITY, "quality")
-    return QUALITY
+def tool(update, context) -> BotState:
+    """
+    Handle the 'tool' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The next state code.
+    """
+    process_request("tool", update, context, BotState.QUALITY, "quality")
+    return BotState.QUALITY
 
 
-def quality(update, context):
+def quality(update, context) -> BotState:
+    """
+    Handle the 'quality' state of the conversation.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    str: The next state code.
+    """
     logger.info("@Quality")
     update_user_data(update, context, "quality")
-    update_message_callback(update, context, f"This is your request in draft form:\n")
+    update_message_callback(update, "This is your request in draft form:\n")
     prompt, _ = assemble_prompt(context)
     if not prompt:
         if update.message:
             update.message.reply_text("Something went wrong. Please try again.")
-        return START
-    update_message_callback(update, context, prompt)
-    show_buttons(update, context, "openai")
-    return OPENAI
+        return BotState.START
+    update_message_callback(update, prompt)
+    show_buttons(update, "openai")
+    return BotState.OPENAI
 
 
-def payment(update, context):
-    logger.info("@Payment")
-    if update.message:
-        update.message.reply_text("Processing your payment...")
-    product, price_data = fetch_stripe_product(PRODUCT_ID)
-    logger.info("Product: %s", product)
-    logger.info("Price data: %s", price_data)
-    if update.message:
-        logger.info("Chat id: %s", update.message.chat_id)
-        send_invoice(update.message.chat_id, STRIPE_TEST, product, price_data)
-    elif update.callback_query:
-        logger.info("Chat id: %s", update.callback_query.message.chat_id)
-        send_invoice(
-            update.callback_query.message.chat_id, STRIPE_TEST, product, price_data
-        )
+def open_ai(update, context) -> None:
+    """
+    Handle the 'openai' state and process the request through OpenAI API.
 
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
 
-def precheckout_callback(update, context):
-    query = update.pre_checkout_query
-    if query.invoice_payload != "some_payload":
-        context.bot.answer_pre_checkout_query(
-            pre_checkout_query_id=query.id,
-            ok=False,
-            error_message="Something went wrong...",
-        )
-    else:
-        context.bot.answer_pre_checkout_query(pre_checkout_query_id=query.id, ok=True)
-
-
-def successful_payment_callback(update, context):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Thank you for your payment!"
-    )
-
-
-def open_ai(update, context):
+    Returns:
+    int: The next state code or ends the conversation.
+    """
     logger.info("@OpenAI")
     logger.info(context.user_data)
     context.user_data["openai"] = "OpenAI"
@@ -228,36 +388,42 @@ def open_ai(update, context):
     logger.info("Prompt: %s", prompt)
     banned_content = openai_obj.moderate(prompt)
     logger.info("Moderation response: %s", banned_content)
-    logger.info("Moderation response: %s", type(banned_content))
     if banned_content:
         logger.info("Banned content")
         update_message_callback(
             update,
-            context,
             "Your prompt contains banned content and it cannot be processed.",
         )
-        return ConversationHandler.END
+        return
     response = openai_obj.create(
-        instruction=openai_obj.PROMPT_ENHANCEMENT_INSTRUCTION,
+        instruction=openai_obj.prompt_enhancement_instruction,
         prompt=prompt,
         enhancement=enhancement,
     )
     logger.info("Response: %s", response)
-    response_text = response["choices"][0]["message"]["content"]
+    response_text = response.choices[0].message.content
     logger.info("Response text: %s", response_text)
     explaining_text = (
         "This is your prompt enhanced. You can copy it and paste it in ChatGPT."
     )
-    update_message_callback(update, context, explaining_text)
-    update_message_callback(update, context, response_text)
-    show_buttons(update, context, "payment")
-    return PAYMENT
+    update_message_callback(update, explaining_text)
+    update_message_callback(update, response_text)
 
 
-def err_openai(update, context):
+def err_openai(update) -> BotState:
+    """
+    Handle errors in the 'openai' state.
+
+    Parameters:
+    update (telegram.Update): The incoming update.
+    context (telegram.ext.CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    str: The 'openai' state code for retry.
+    """
     update.message.reply_text("Please enter your OpenAI API key again.")
-    show_buttons(update, context, "openai")
-    return OPENAI
+    show_buttons(update, "openai")
+    return BotState.OPENAI
 
 
 process_dict = {
@@ -271,23 +437,40 @@ process_dict = {
     "constraints": constraints,
     "tool": tool,
     "quality": quality,
-    "payment": payment,
     "openai": open_ai,
 }
 
 
-def get_curr_state(update, context):
+def get_curr_state(update) -> str:
+    """
+    Get the current state from the update object.
+
+    Parameters:
+    update (Update): The incoming update from the Telegram API.
+
+    Returns:
+    str: The current state extracted from the update's callback data.
+    """
     if update.callback_query:
         query = update.callback_query
     if update.message:
         query = update.message
-    #query.answer()
     callback_data = query.data.split("_")
     current_state = callback_data[0]
     return current_state
 
 
-def button(update, context):
+def button(update, context) -> BotState:
+    """
+    Handle button press in the Telegram bot.
+
+    Parameters:
+    update (Update): The incoming update from the Telegram API.
+    context (CallbackContext): The callback context provided by the Telegram bot.
+
+    Returns:
+    BotState: The code of the next state in the conversation.
+    """
     logger.info("@Button")
     query = update.callback_query
     query.answer()
@@ -301,7 +484,6 @@ def button(update, context):
         "constraints",
         "tool",
         "quality",
-        "payment",
         "openai",
     ]
     if current_state in processes_with_buttons:
@@ -310,13 +492,21 @@ def button(update, context):
         return state_code[current_state]
     if current_state == "start":
         logger.info("Entering start again")
-        ConversationHandler.END
         callback_data[0] = "goal"
         start(update, context)
-        return START
+        return BotState.START
+    return state_code[current_state + 1]
 
 
 def main():
+    """
+    Main function to start the Telegram bot.
+
+    Initializes the bot, sets up the conversation handler, and starts polling for updates.
+
+    Returns:
+    None
+    """
     telegram_token = os.getenv("TELEGRAM_TOKEN")
     # Initialize the Updater
     updater = Updater(telegram_token, use_context=True)
@@ -325,24 +515,27 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start), CommandHandler("cancel", start)],
         states={
-            START: [MessageHandler(Filters.text & ~Filters.command, start)],
-            GOAL: [MessageHandler(Filters.text & ~Filters.command, goal)],
-            PERSONA: [MessageHandler(Filters.text & ~Filters.command, persona)],
-            TASK: [MessageHandler(Filters.text & ~Filters.command, task)],
-            WHOM: [MessageHandler(Filters.text & ~Filters.command, whom)],
-            HOW: [MessageHandler(Filters.text & ~Filters.command, how)],
-            FORMAT: [MessageHandler(Filters.text & ~Filters.command, formatting)],
-            CONSTRAINTS: [MessageHandler(Filters.text & ~Filters.command, constraints)],
-            TOOL: [MessageHandler(Filters.text & ~Filters.command, tool)],
-            QUALITY: [MessageHandler(Filters.text & ~Filters.command, quality)],
-            PAYMENT: [MessageHandler(Filters.text & ~Filters.command, payment)],
-            OPENAI: [MessageHandler(Filters.text & ~Filters.command, open_ai)],
+            BotState.START: [MessageHandler(Filters.text & ~Filters.command, start)],
+            BotState.GOAL: [MessageHandler(Filters.text & ~Filters.command, goal)],
+            BotState.PERSONA: [
+                MessageHandler(Filters.text & ~Filters.command, persona)
+            ],
+            BotState.TASK: [MessageHandler(Filters.text & ~Filters.command, task)],
+            BotState.WHOM: [MessageHandler(Filters.text & ~Filters.command, whom)],
+            BotState.HOW: [MessageHandler(Filters.text & ~Filters.command, how)],
+            BotState.FORMAT: [
+                MessageHandler(Filters.text & ~Filters.command, formatting)
+            ],
+            BotState.CONSTRAINTS: [
+                MessageHandler(Filters.text & ~Filters.command, constraints)
+            ],
+            BotState.TOOL: [MessageHandler(Filters.text & ~Filters.command, tool)],
+            BotState.QUALITY: [
+                MessageHandler(Filters.text & ~Filters.command, quality)
+            ],
+            BotState.OPENAI: [MessageHandler(Filters.text & ~Filters.command, open_ai)],
         },
         fallbacks=[CommandHandler("cancel", start)],
-    )
-    dp.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    dp.add_handler(
-        MessageHandler(Filters.successful_payment, successful_payment_callback)
     )
     dp.add_handler(conv_handler)
     dp.add_handler(CallbackQueryHandler(button))
