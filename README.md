@@ -37,26 +37,31 @@ git clone [repository URL]
 
 ## Running the Bot
 
-To run the bot, use the following command:
+- In the host
 
-poetry run python3 peb/telegram_bot.py
+  - To run the bot, use the following command:
+  ```
+    poetry run python3 peb/telegram_bot.py
+  ```
+
+- In Telegram
+  - Search for prompt_engineering_bot
+  - Enter /start
 
 ## Configuration
 
 - **Telegram Bot Token**: Set your Telegram bot token in the `.env` file to connect the bot with the Telegram API.
 - Do the same for openai tokens
 
-## Contributing
+## Disclaimer
 
-Contributions are welcome. Please adhere to the project's code style and ensure all tests pass. For major changes, please open an issue first to discuss what you would like to change.
+- This is a prototype. To do list:
+  - Start again button does not work properly in Telegram
+  - The final bot should handle multiple users
 
 ## License
 
 This project is licensed under the **CC BY-NC** License
-
-## Acknowledgments
-
-- Thanks to OpenAI for the API powering prompt enhancements.
 
 ## Contact
 
